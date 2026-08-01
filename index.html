@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- ============================================================
+       TÍTULO DA PÁGINA — aparece no separador do browser
+  ============================================================ -->
+  <title>Análise de Adjudicações</title>
+
+  <!-- biblioteca para gerar o ficheiro Excel e ícon de download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <style>
+    /* =============================================================
+       CORES E FONTES
+    ============================================================= */
+    :root {
+      --cor-fundo:         #f5f6fa;      /* fundo da página */
+      --cor-painel:        #ffffff;      /* fundo dos painéis */
+      --cor-primaria:      #1a5fa8;      /* cor dos botões principais */
+      --cor-primaria-hover:#16395e;      /* cor dos botões ao passar o rato */
+      --cor-export:        #16a34a;      /* cor do botão exportar */
+      --cor-export-hover:  #15803d;
+      --cor-texto:         #1e293b;      /* cor do texto principal */
+      --cor-subtexto:      #64748b;      /* cor do texto secundário */
+      --cor-borda:         #e2e8f0;      /* cor das bordas */
+      --cor-tag:           #eff6ff;      /* fundo das tags de palavras-chave */
+      --cor-tag-texto:     #1d4ed8;      /* texto das tags */
+      --cor-match:         #fef9c3;      /* destaque de palavra encontrada */
+      --cor-match-texto:   #854d0e; 
+      --fonte:             'Segoe UI', Arial, sans-serif;
+      --raio:              10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--fonte);
+      background: var(--cor-fundo);
+      color: var(--cor-texto);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    /* =============================================================
+       CABEÇALHO
+    ============================================================= */
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--cor-primaria);
+      margin-bottom: 0.4rem;
+    }
+    header p {
+      font-size: 0.95rem;
+      color: var(--cor-subtexto);
+    }
+
+    /* =============================================================
+       LAYOUT
+    ============================================================= */
+    .container {
+      max-width: 1100px; 
+      margin: 0 auto;
+    }
+
+    .painel {
+      background: var(--cor-painel);
+      border: 1px solid var(--cor-borda);
+      border-radius: var(--raio);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .painel h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--cor-texto);
+    }
+
+    label {
+      font-size: 0.85rem;
+      color: var(--cor-subtexto);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    textarea, input[type="text"] {
+      width: 100%;
+      font-family: var(--fonte);
+      font-size: 0.9rem;
+      border: 1px solid var(--cor-borda);
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: var(--cor-texto);
+      background: #fff;
+      transition: border 0.2s;
+      outline: none;
+    }
+    textarea:focus, input[type="text"]:focus {
+      border-color: var(--cor-primaria);
+    }
+
+    /* =============================================================
+       BOTÕES
+    ============================================================= */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: var(--fonte);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-primario {
+      background: var(--cor-primaria);
+      color: #fff;
+    }
+    .btn-primario:hover { background: var(--cor-primaria-hover); }
+
+    .btn-secundario {
+      background: var(--cor-fundo);
+      color: var(--cor-texto);
+      border: 1px solid var(--cor-borda);
+    }
+    .btn-secundario:hover { background: var(--cor-borda); }
+
+    .btn-export {
+      background: var(--cor-export);
+      color: #fff;
+    }
+    .btn-export:hover { background: var(--cor-export-hover); }
+
+    .btn-analisar {
+      width: 100%;
+      justify-content: center;
+      padding: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    /* =============================================================
+       TAGS DE PALAVRAS-CHAVE
+    ============================================================= */
+    .row-input {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .row-input input { flex: 1; }
+
+    #tags-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+      min-height: 32px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--cor-tag);
+      color: var(--cor-tag-texto);
+      border: 1px solid #bfdbfe;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
+    .tag button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--cor-tag-texto);
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0;
+      opacity: 0.6;
+    }
+    .tag button:hover { opacity: 1; }
+
+    /* upload de ficheiro */
+    .upload-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      color: var(--cor-subtexto);
+      cursor: pointer;
+      border: 1px dashed var(--cor-borda);
+      border-radius: 6px;
+      padding: 6px 12px;
+      transition: border 0.2s;
+    }
+    .upload-label:hover { border-color: var(--cor-primaria); color: var(--cor-primaria); }
+
+    /* =============================================================
+       MENSAGEM DE ESTADO
+    ============================================================= */
+    #status {
+      font-size: 0.85rem;
+      color: var(--cor-subtexto);
+      margin-top: 10px;
+      min-height: 20px;
+      text-align: center;
+    }
+    #status.erro { color: #dc2626; }
+    #status.ok   { color: #16a34a; }
+
+    /* =============================================================
+       RESULTADOS
+    ============================================================= */
+    #resultados-area { display: none; }
+
+    .resultados-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .resultados-header h2 { margin: 0; }
+
+    .card {
+      border: 1px solid var(--cor-borda);
+      border-radius: var(--raio);
+      padding: 1.2rem;
+      margin-bottom: 1rem;
+      background: #fff;
+    }
+    .card:hover { border-color: var(--cor-primaria); }
+
+    .card-titulo {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--cor-texto);
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 4px 12px;
+      font-size: 0.85rem;
+    }
+    .card-grid .chave { color: var(--cor-subtexto); }
+    .card-grid .valor { color: var(--cor-texto); }
+
+    .badge {
+      display: inline-block;
+      background: var(--cor-match);
+      color: var(--cor-match-texto);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      margin: 2px 2px 0 0;
+    }
+
+    /* =============================================================
+       SEPARADOR
+    ============================================================= */
+    hr {
+      border: none;
+      border-top: 1px solid var(--cor-borda);
+      margin: 1.5rem 0;
+    }
+  </style>
+</head>
+
+<body>
+<div class="container">
+
+  <!-- =============================================================
+       CABEÇALHO
+  ============================================================= -->
+  <header>
+    <a href="https://magal.pt/" target="_blank">
+      <img src="logo.png" alt="Magal" style="height: 80px" />
+    </a>
+    <h1>Análise de Adjudicações</h1>
+    <p>Cola o texto das adjudicações, define as palavras-chave e exporta para Excel.</p>
+  </header>
+
+
+  <!-- =============================================================
+       PAINEL 1 — TEXTO DAS ADJUDICAÇÕES
+  ============================================================= -->
+  <div class="painel">
+    <h2>1. Texto das Adjudicações</h2>
+
+    <!-- botão de upload de ficheiro .txt -->
+    <div style="margin-bottom: 10px; display:flex; align-items:center; gap:8px;">
+      <label class="upload-label" for="upload-texto">
+        📂 Carregar ficheiro .txt
+      </label>
+      <input type="file" id="upload-texto" accept=".txt" style="display:none" />
+      <span id="nome-ficheiro-texto" style="font-size:0.8rem;color:var(--cor-subtexto);"></span>
+      <button id="btn-limpar-texto" onclick="limparTexto()"
+        style="display:none; background:none; border:none; cursor:pointer; font-size:1.1rem; color:var(--cor-subtexto); line-height:1;"
+        title="Remover ficheiro">×</button>
+    </div>
+
+    <!-- área de texto — altera o placeholder se quiseres -->
+    <textarea id="texto-input" rows="10"
+      placeholder="Cola aqui o texto das adjudicações diretamente do mail"></textarea>
+  </div>
+
+
+  <!-- =============================================================
+       PAINEL 2 — PALAVRAS-CHAVE
+  ============================================================= -->
+  <div class="painel">
+    <h2>2. Palavras-chave</h2>
+
+    <!-- upload de lista de palavras -->
+    <div style="margin-bottom: 10px; display:flex; align-items:center; gap:8px;">
+      <label class="upload-label" for="upload-kw">
+        📂 Carregar lista .txt (uma palavra por linha)
+      </label>
+      <input type="file" id="upload-kw" accept=".txt" style="display:none" />
+    </div>
+
+    <!-- caixa de texto -->
+    <div class="row-input">
+      <input type="text" id="kw-input" placeholder="Ou escreve uma palavra e adiciona" />
+      <button class="btn btn-primario" onclick="adicionarKeyword()">+ Adicionar</button>
+    </div>
+
+    <!-- tags das palavras adicionadas -->
+    <div id="tags-container"></div>
+  </div>
+
+
+  <!-- =============================================================
+       BOTÃO ANALISAR
+  ============================================================= -->
+  <button class="btn btn-primario btn-analisar" onclick="analisar()">
+    Analisar Adjudicações
+  </button>
+  <div id="status"></div>
+
+  <hr id="divisor" style="display:none" />
+
+
+  <!-- =============================================================
+       RESULTADOS
+  ============================================================= -->
+  <div id="resultados-area">
+    <div class="resultados-header">
+      <h2 id="titulo-resultados"></h2>
+      <button class="btn btn-export" onclick="exportarExcel()">
+        <i data-lucide="download" style="width:18px;height:18px;"></i>
+        Exportar Excel
+      </button>
+    </div>
+    <div id="lista-resultados"></div>
+  </div>
+
+</div><!-- /container -->
+
+
+<script>
+  /* ===========================================================
+     ESTADO — palavras-chave e resultados
+  =========================================================== */
+  let keywords = [];
+  let resultados = [];
+
+  /* ===========================================================
+     PALAVRAS-CHAVE
+  =========================================================== */
+  // limpar ficheiro de texto
+  function limparTexto() {
+    document.getElementById('texto-input').value = '';
+    document.getElementById('nome-ficheiro-texto').textContent = '';
+    document.getElementById('btn-limpar-texto').style.display = 'none';
+    document.getElementById('upload-texto').value = '';
+  }
+
+  // mostrar cruz quando ficheiro é carregado
+  document.getElementById('upload-texto').addEventListener('change', function() {
+    const f = this.files[0];
+    if (!f) return;
+    document.getElementById('nome-ficheiro-texto').textContent = f.name;
+    document.getElementById('btn-limpar-texto').style.display = 'inline';
+    const r = new FileReader();
+    r.onload = e => { document.getElementById('texto-input').value = e.target.result; };
+    r.readAsText(f);
+  });
+
+    document.getElementById('kw-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') adicionarKeyword();
+  });
+
+  function adicionarKeyword() {
+    const input = document.getElementById('kw-input');
+    const val = input.value.trim().toLowerCase();
+    if (val && !keywords.includes(val)) {
+      keywords.push(val);
+      renderTags();
+    }
+    input.value = '';
+    input.focus();
+  }
+
+  function removerKeyword(kw) {
+    keywords = keywords.filter(k => k !== kw);
+    renderTags();
+  }
+
+  function renderTags() {
+    const c = document.getElementById('tags-container');
+    c.innerHTML = '';
+    keywords.forEach(kw => {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.innerHTML = `${kw} <button onclick="removerKeyword('${kw}')" title="Remover">×</button>`;
+      c.appendChild(tag);
+    });
+  }
+
+  // upload de lista de palavras-chave
+    document.getElementById('upload-kw').addEventListener('change', function() {
+    const f = this.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = e => {
+      const palavras = e.target.result.split('\n').map(w => w.trim().toLowerCase()).filter(Boolean);
+      palavras.forEach(w => { if (!keywords.includes(w)) keywords.push(w); });
+      renderTags();
+    };
+    r.readAsText(f);
+  });
+
+
+  /* ===========================================================
+     PARSING
+  =========================================================== */
+  function dividirEmBlocos(texto) {
+    const blocos = [];
+    let atual = [];
+
+    for (const linha of texto.split('\n')) {
+      const trimmed = linha.trim();
+
+      // nova adjudicação começa aqui
+      if (trimmed === 'Data de Publicação:' && atual.length > 0) {
+        blocos.push(atual.join('\n'));
+        atual = [];
+      }
+
+      // ignora códigos de categoria (ex: "44000000 | Estruturas...")
+      if (/^\d{8}\s*\|/.test(trimmed)) continue;
+
+      // ignora "ver mais"
+      if (trimmed.toLowerCase() === 'ver mais') continue;
+
+      if (trimmed) atual.push(trimmed);
+    }
+    if (atual.length) blocos.push(atual.join('\n'));
+    return blocos.filter(b => b.includes('Objeto:'));
+  }
+
+  function extrairCampoLinha(linhas, label) {
+    // devolve a linha imediatamente a seguir ao label
+    const idx = linhas.findIndex(l => l.trim() === label);
+    if (idx !== -1 && linhas[idx + 1]) return linhas[idx + 1].trim();
+    return '';
+  }
+
+  function parsearBloco(bloco) {
+    const linhas = bloco.split('\n');
+
+    const data    = extrairCampoLinha(linhas, 'Data de Publicação:');
+    const objeto  = extrairCampoLinha(linhas, 'Objeto:');
+    const adjudic = extrairCampoLinha(linhas, 'Adjudicante:');
+    const contrat = extrairCampoLinha(linhas, 'Contratada:');
+
+    return {
+      'Data de Publicação': data,
+      'Objeto':             objeto,
+      'Adjudicante':        adjudic,
+      'Contratada':         contrat,
+      'Palavras-chave encontradas': keywords
+        .filter(kw => objeto.toLowerCase().includes(kw.toLowerCase()))
+        .join(', '),
+      _raw: bloco
+    };
+  }
+
+
+  /* ===========================================================
+     ANÁLISE PRINCIPAL
+  =========================================================== */
+  function analisar() {
+    const texto  = document.getElementById('texto-input').value.trim();
+    const status = document.getElementById('status');
+
+    if (!texto)           { status.textContent = 'Cola ou carrega um texto primeiro.'; status.className = 'erro'; return; }
+    if (!keywords.length) { status.textContent = 'Adiciona pelo menos uma palavra-chave.'; status.className = 'erro'; return; }
+
+    const blocos = dividirEmBlocos(texto);
+    status.textContent = `A analisar ${blocos.length} adjudicações...`;
+    status.className = '';
+
+    // filtra APENAS pelo campo Objeto
+    resultados = blocos
+      .map(b => parsearBloco(b))
+      .filter(r => keywords.some(kw => r['Objeto'].toLowerCase().includes(kw.toLowerCase())));
+
+    renderResultados();
+  }
+
+
+  /* ===========================================================
+     RENDERIZAR RESULTADOS
+  =========================================================== */
+  function renderResultados() {
+    const area    = document.getElementById('resultados-area');
+    const divisor = document.getElementById('divisor');
+    const lista   = document.getElementById('lista-resultados');
+    const titulo  = document.getElementById('titulo-resultados');
+    const status  = document.getElementById('status');
+
+    if (!resultados.length) {
+      status.textContent = 'Nenhuma adjudicação encontrada com as palavras-chave selecionadas.';
+      status.className = 'erro';
+      area.style.display = 'none';
+      divisor.style.display = 'none';
+      return;
+    }
+
+    status.textContent = `${resultados.length} adjudicações encontradas.`;
+    status.className = 'ok';
+    area.style.display = 'block';
+    divisor.style.display = 'block';
+    titulo.textContent = `${resultados.length} adjudicações encontradas`;
+    lista.innerHTML = '';
+
+    const CAMPOS_DISPLAY = ['Data de Publicação', 'Objeto', 'Adjudicante', 'Contratada'];
+
+    resultados.forEach((r, i) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      const badges = r['Palavras-chave encontradas']
+        .split(', ').filter(Boolean)
+        .map(k => `<span class="badge">${k}</span>`).join('');
+
+      const linhas = CAMPOS_DISPLAY
+        .filter(c => r[c])
+        .map(c => `<span class="chave">${c}</span><span class="valor">${r[c]}</span>`)
+        .join('');
+
+      card.innerHTML = `
+        <div class="card-titulo">${i + 1}. ${r['Objeto']}</div>
+        <div class="card-grid">${linhas}</div>
+        ${badges ? `<div style="margin-top:10px">${badges}</div>` : ''}
+      `;
+      lista.appendChild(card);
+    });
+  }
+
+
+  /* ===========================================================
+     EXPORTAR EXCEL
+  =========================================================== */
+  async function exportarExcel() {
+    if (!resultados.length) return;
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Adjudicações');
+
+    // definir colunas
+    ws.columns = [
+      { header: 'Data de Publicação', key: 'data',       width: 18 },
+      { header: 'Objeto',             key: 'objeto',     width: 60 },
+      { header: 'Adjudicante',        key: 'adjudicante',width: 35 },
+      { header: 'Contratada',         key: 'contratada', width: 35 },
+      { header: 'Palavras-chave',     key: 'keywords',   width: 25 },
+    ];
+
+    // estilo do cabeçalho — azul Magal + letras brancas
+    ws.getRow(1).eachCell(cell => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF1a5fa8' },
+      };
+      cell.font = {
+        bold: true,
+        color: { argb: 'FFFFFFFF' },
+      };
+    });
+
+    // adicionar dados
+    resultados.forEach(r => {
+      ws.addRow({
+        data:        r['Data de Publicação'],
+        objeto:      r['Objeto'],
+        adjudicante: r['Adjudicante'],
+        contratada:  r['Contratada'],
+        keywords:    r['Palavras-chave encontradas'],
+      });
+    });
+
+    // download
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, 'adjudicacoes.xlsx');
+  }
+</script>
+<script>lucide.createIcons();</script>
+</body>
+</html>
