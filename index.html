@@ -292,7 +292,7 @@
   ============================================================= -->
   <header>
     <a href="https://magal.pt/" target="_blank">
-      <img src="logo.png" alt="Magal" style="height: 80px" />
+      <img src="logo.png" alt="Magal" style="height: 100px; padding: 20px"/>
     </a>
     <h1>Análise de Adjudicações</h1>
     <p>Cola o texto das adjudicações, define as palavras-chave e exporta para Excel.</p>
@@ -450,69 +450,107 @@
   });
 
 
-  /* ===========================================================
-     PARSING
+    /* ===========================================================
+    PARSING
   =========================================================== */
+
   function dividirEmBlocos(texto) {
-    const blocos = [];
-    let atual = [];
 
-    for (const linha of texto.split('\n')) {
-      const trimmed = linha.trim();
+    // remove \r para funcionar em Windows e Linux
+    texto = texto.replace(/\r/g, '');
 
-      // nova adjudicação começa aqui
-      if (trimmed === 'Data de Publicação:' && atual.length > 0) {
-        blocos.push(atual.join('\n'));
-        atual = [];
-      }
+    // remove linhas "ver mais"
+    texto = texto.replace(/^\s*ver mais\s*$/gmi, '');
 
-      // ignora códigos de categoria (ex: "44000000 | Estruturas...")
-      if (/^\d{8}\s*\|/.test(trimmed)) continue;
+    // remove linhas de categorias (44000000 | ...)
+    texto = texto.replace(/^\d{8}\s*\|.*$/gm, '');
 
-      // ignora "ver mais"
-      if (trimmed.toLowerCase() === 'ver mais') continue;
+    // divide sempre que começa uma nova adjudicação
+    const blocos = texto
+      .split(/(?=Data de Publicação\s*:)/i)
+      .map(b => b.trim())
+      .filter(b => b.length);
 
-      if (trimmed) atual.push(trimmed);
-    }
-    if (atual.length) blocos.push(atual.join('\n'));
-    return blocos.filter(b => b.includes('Objeto:'));
+    return blocos;
   }
 
-  function extrairCampoLinha(linhas, label) {
-    // devolve a linha imediatamente a seguir ao label
-    const idx = linhas.findIndex(l => l.trim() === label);
-    if (idx !== -1 && linhas[idx + 1]) return linhas[idx + 1].trim();
-    return '';
+  function extrairCampo(bloco, campo, proximoCampo = null) {
+
+    let regex;
+
+    if (proximoCampo) {
+      regex = new RegExp(
+        campo + "\\s*:?\\s*([\\s\\S]*?)(?=" + proximoCampo + "\\s*:|$)",
+        "i"
+      );
+    } else {
+      regex = new RegExp(
+        campo + "\\s*:?\\s*([\\s\\S]*)",
+        "i"
+      );
+    }
+
+    const m = bloco.match(regex);
+
+    if (!m) return "";
+
+    return m[1]
+      .replace(/\n+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   function parsearBloco(bloco) {
-    const linhas = bloco.split('\n');
 
-    const data    = extrairCampoLinha(linhas, 'Data de Publicação:');
-    const objeto  = extrairCampoLinha(linhas, 'Objeto:');
-    const adjudic = extrairCampoLinha(linhas, 'Adjudicante:');
-    const contrat = extrairCampoLinha(linhas, 'Contratada:');
+    const data = extrairCampo(
+      bloco,
+      "Data de Publicação",
+      "Objeto"
+    );
+
+    const objeto = extrairCampo(
+      bloco,
+      "Objeto",
+      "Adjudicante"
+    );
+
+    const adjudicante = extrairCampo(
+      bloco,
+      "Adjudicante",
+      "Contratada"
+    );
+
+    const contratada = extrairCampo(
+      bloco,
+      "Contratada"
+    );
 
     return {
-      'Data de Publicação': data,
-      'Objeto':             objeto,
-      'Adjudicante':        adjudic,
-      'Contratada':         contrat,
-      'Palavras-chave encontradas': keywords
-        .filter(kw => objeto.toLowerCase().includes(kw.toLowerCase()))
-        .join(', '),
+
+      "Data de Publicação": data,
+      "Objeto": objeto,
+      "Adjudicante": adjudicante,
+      "Contratada": contratada,
+
+      "Palavras-chave encontradas": keywords
+        .filter(k =>
+          objeto.toLowerCase().includes(k.toLowerCase())
+        )
+        .join(", "),
+
       _raw: bloco
+
     };
+
   }
 
 
-  /* ===========================================================
-     ANÁLISE PRINCIPAL
-  =========================================================== */
+    /* ===========================================================
+      ANÁLISE PRINCIPAL
+    =========================================================== */
   function analisar() {
     const texto  = document.getElementById('texto-input').value.trim();
     const status = document.getElementById('status');
-
     if (!texto)           { status.textContent = 'Cola ou carrega um texto primeiro.'; status.className = 'erro'; return; }
     if (!keywords.length) { status.textContent = 'Adiciona pelo menos uma palavra-chave.'; status.className = 'erro'; return; }
 
@@ -520,7 +558,7 @@
     status.textContent = `A analisar ${blocos.length} adjudicações...`;
     status.className = '';
 
-    // filtra APENAS pelo campo Objeto
+      // filtra APENAS pelo campo Objeto
     resultados = blocos
       .map(b => parsearBloco(b))
       .filter(r => keywords.some(kw => r['Objeto'].toLowerCase().includes(kw.toLowerCase())));
